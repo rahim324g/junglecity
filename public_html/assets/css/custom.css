@@ -1,0 +1,83 @@
+/* Modern Custom Styles for Jungle City */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --jungle-dark: 147 84% 20%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', sans-serif !important;
+}
+
+/* Make existing buttons more modern */
+button, a.button, .btn {
+  transition: all 0.3s ease !important;
+}
+
+button:hover, a.button:hover, .btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 20px rgba(14, 161, 90, 0.2) !important;
+}
+
+/* Image hover effects */
+img {
+  transition: transform 0.5s ease !important;
+}
+
+/* Floating WhatsApp Widget */
+.whatsapp-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 60px;
+  height: 60px;
+  background-color: #25d366;
+  color: white;
+  border-radius: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
+  z-index: 9999;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.whatsapp-widget:hover {
+  transform: scale(1.1) translateY(-5px);
+  box-shadow: 0 8px 25px rgba(37, 211, 102, 0.6);
+  color: white;
+}
+
+.whatsapp-widget svg {
+  width: 32px;
+  height: 32px;
+  fill: currentColor;
+}
+
+/* Add a pulse animation to the widget */
+@keyframes pulse-whatsapp {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(37, 211, 102, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+  }
+}
+
+.whatsapp-widget {
+  animation: pulse-whatsapp 2s infinite;
+}

@@ -1,0 +1,8 @@
+{
+  "name": "junglecity-site",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo \"No source to build; site is static in public_html\""
+  }
+}
