@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Jungle City — Admin Login</title>
+  <style>body{font-family:system-ui,Arial;margin:24px}button{padding:10px 14px}</style>
+</head>
+<body>
+  <h1>Jungle City — Admin</h1>
+  <p>Sign in with GitHub to edit the site and upload images.</p>
+  <div id="buttons"></div>
+
+  <script>
+    async function init(){
+      const r = await fetch('/api/oauth-config');
+      const cfg = await r.json();
+      const clientId = cfg.client_id;
+      const redirect = location.origin + '/api/oauth-callback';
+      const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&scope=repo&redirect_uri=${encodeURIComponent(redirect)}`;
+      const container = document.getElementById('buttons');
+      if (!clientId) {
+        container.innerHTML = '<p style="color:crimson">OAuth not configured. Set GITHUB_OAUTH_CLIENT_ID in environment.</p>';
+        return;
+      }
+      container.innerHTML = `<a href="${authUrl}"><button>Login with GitHub</button></a> <a href="/admin/dashboard.html"><button>Open Dashboard (if already authenticated)</button></a>`;
+    }
+    init();
+  </script>
+</body>
+</html>
