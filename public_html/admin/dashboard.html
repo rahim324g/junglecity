@@ -4,67 +4,141 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Jungle City — Admin Dashboard</title>
-  <style>body{font-family:system-ui,Arial;margin:18px}textarea{width:100%;height:320px;font-family:monospace}input,button{padding:8px}</style>
+  <style>
+    body { font-family: system-ui, Arial; margin: 18px; background: #f5f5f5; }
+    h1, h2 { color: #0ea15a; }
+    section { background: white; padding: 20px; margin: 16px 0; border-radius: 6px; }
+    textarea { width: 100%; height: 320px; font-family: monospace; padding: 8px; border: 1px solid #ccc; }
+    input, button { padding: 8px 12px; margin-right: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    button { background: #0ea15a; color: white; cursor: pointer; border: none; }
+    button:hover { background: #0d8d4a; }
+    .status { margin-top: 12px; padding: 8px; border-radius: 4px; }
+    .status.ok { background: #d4edda; color: #155724; }
+    .status.error { background: #f8d7da; color: #721c24; }
+    .status.info { background: #d1ecf1; color: #0c5460; }
+    label { display: block; margin-bottom: 8px; }
+    #logoutBtn { background: #dc3545; }
+    #logoutBtn:hover { background: #c82333; }
+  </style>
 </head>
 <body>
   <h1>Admin Dashboard</h1>
-  <p>Use this UI to edit files (path relative to repo) and upload images. Login via the <a href="/admin">Admin login</a> if needed.</p>
+  <p>Edit files and upload images. Changes are committed directly to GitHub. <button id="logoutBtn">Logout</button></p>
 
   <section>
     <h2>Edit file</h2>
-    <label>File path: <input id="filePath" value="public_html/index.html" style="width:60%"></label>
-    <p><button id="loadBtn">Load</button> <button id="saveBtn">Save (commit)</button></p>
-    <textarea id="editor"></textarea>
-    <p id="status"></p>
+    <label>File path (relative to repo root): 
+      <input id="filePath" value="public_html/index.html" style="width:70%">
+    </label>
+    <p><button id="loadBtn">Load File</button> <button id="saveBtn">Save & Commit</button></p>
+    <textarea id="editor" placeholder="File content will appear here..."></textarea>
+    <div id="editStatus" class="status" style="display:none;"></div>
   </section>
 
   <section>
     <h2>Upload image</h2>
-    <input type="file" id="imageInput" accept="image/*"><br><br>
-    <label>Filename (optional): <input id="imageName" placeholder="keep original"></label>
-    <p><button id="uploadBtn">Upload</button></p>
-    <p id="uploadStatus"></p>
+    <input type="file" id="imageInput" accept="image/*">
+    <br><br>
+    <label>Filename (optional, keeps original if blank): 
+      <input id="imageName" placeholder="auto-generated">
+    </label>
+    <p><button id="uploadBtn">Upload Image</button></p>
+    <div id="uploadStatus" class="status" style="display:none;"></div>
   </section>
 
   <script>
-    async function jsonReq(url, opts){
-      const r = await fetch(url, opts);
-      try { return await r.json(); } catch(e){ return { ok: r.ok, status: r.status } }
+    function setStatus(elemId, message, type = 'info') {
+      const elem = document.getElementById(elemId);
+      elem.textContent = message;
+      elem.className = `status ${type}`;
+      elem.style.display = 'block';
     }
 
-    document.getElementById('loadBtn').addEventListener('click', async ()=>{
+    async function jsonReq(url, opts = {}) {
+      try {
+        const r = await fetch(url, opts);
+        if (!r.ok) return { ok: false, status: r.status, error: `HTTP ${r.status}` };
+        return await r.json().catch(() => ({ ok: true }));
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    }
+
+    document.getElementById('loadBtn').addEventListener('click', async () => {
       const path = document.getElementById('filePath').value.trim();
-      if (!path) return alert('Enter path');
-      const r = await fetch(`https://raw.githubusercontent.com/${(await (await fetch('/api/oauth-config')).json()).repo}/main/${path}`);
-      if (!r.ok) return document.getElementById('status').textContent = 'Failed to load file (not found or access)';
+      if (!path) return alert('Enter file path');
+      setStatus('editStatus', 'Loading...', 'info');
+      const cfg = await jsonReq('/api/oauth-config');
+      if (!cfg.repo) {
+        setStatus('editStatus', 'OAuth not configured', 'error');
+        return;
+      }
+      const fileUrl = `https://raw.githubusercontent.com/${cfg.repo}/main/${path}`;
+      const r = await fetch(fileUrl).catch(() => ({ ok: false }));
+      if (!r.ok) {
+        setStatus('editStatus', `Failed to load file: ${fileUrl} not found`, 'error');
+        return;
+      }
       const txt = await r.text();
       document.getElementById('editor').value = txt;
-      document.getElementById('status').textContent = 'Loaded.';
+      setStatus('editStatus', `Loaded ${path}`, 'ok');
     });
 
-    document.getElementById('saveBtn').addEventListener('click', async ()=>{
+    document.getElementById('saveBtn').addEventListener('click', async () => {
       const path = document.getElementById('filePath').value.trim();
       const content = document.getElementById('editor').value;
-      if (!path) return alert('Enter path');
-      document.getElementById('status').textContent = 'Saving...';
-      const res = await jsonReq('/api/gh-commit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ path, content, message: `Admin edit: ${path}` }) });
-      document.getElementById('status').textContent = res.ok ? 'Saved.' : ('Error: ' + (res.message || JSON.stringify(res)));
+      if (!path) return alert('Enter file path');
+      setStatus('editStatus', 'Saving...', 'info');
+      const res = await jsonReq('/api/gh-commit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path,
+          content,
+          message: `Admin edit: ${path}`,
+          branch: 'main'
+        })
+      });
+      if (res.ok) {
+        setStatus('editStatus', `Saved and committed: ${path}`, 'ok');
+      } else {
+        setStatus('editStatus', `Error: ${res.error || res.message || JSON.stringify(res)}`, 'error');
+      }
     });
 
-    document.getElementById('uploadBtn').addEventListener('click', async ()=>{
+    document.getElementById('uploadBtn').addEventListener('click', async () => {
       const input = document.getElementById('imageInput');
-      if (!input.files || !input.files[0]) return alert('Pick a file');
+      if (!input.files || !input.files[0]) return alert('Select an image');
       const file = input.files[0];
       const name = document.getElementById('imageName').value.trim() || file.name;
       const reader = new FileReader();
-      reader.onload = async ()=>{
+      reader.onload = async () => {
+        setStatus('uploadStatus', 'Uploading...', 'info');
         const base64 = reader.result.split(',')[1];
-        document.getElementById('uploadStatus').textContent = 'Uploading...';
-        const res = await jsonReq('/api/gh-upload', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ filename: name, content_base64: base64, message: `Admin upload: ${name}` }) });
-        if (res.ok) document.getElementById('uploadStatus').innerHTML = `Uploaded: <a href="${res.url}" target="_blank">${res.url}</a>`;
-        else document.getElementById('uploadStatus').textContent = 'Upload failed: ' + JSON.stringify(res);
+        const res = await jsonReq('/api/gh-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: name,
+            content_base64: base64,
+            message: `Admin upload: ${name}`
+          })
+        });
+        if (res.ok && res.url) {
+          setStatus('uploadStatus', `Uploaded: ${res.url}`, 'ok');
+          document.getElementById('uploadStatus').innerHTML += `<br><a href="${res.url}" target="_blank">View image</a>`;
+        } else {
+          setStatus('uploadStatus', `Upload failed: ${res.error || JSON.stringify(res)}`, 'error');
+        }
       };
       reader.readAsDataURL(file);
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      if (confirm('Clear session and logout?')) {
+        document.cookie = 'gh_token=; Path=/; Max-Age=0';
+        window.location.href = '/admin';
+      }
     });
   </script>
 </body>
